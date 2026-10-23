@@ -248,7 +248,7 @@
 
             <div class="form-section">
               <div class="form-section-head">
-                <h3>Checklist de verificação</h3>
+                <h3>Opcionais e Características</h3>
                 <button type="button" class="btn btn-ghost btn-sm" id="btnAddCheck">
                   <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   Adicionar item
@@ -256,8 +256,7 @@
               </div>
               <div class="form-section-body">
                 <p style="font-size:12px; color:var(--silver); margin-bottom:14px;">
-                  Marque os itens já verificados e ajuste os textos. O que estiver marcado aparece como
-                  “Itens verificados” na página do veículo.
+                  Marque os itens que o veículo possui ou adicione novos. O que estiver marcado aparece na página do veículo.
                 </p>
                 <div class="checklist-editor" id="checklistEditor"></div>
               </div>
@@ -292,7 +291,7 @@
           </div>
 
           <div class="panel" style="margin-top:16px;">
-            <div class="panel-head"><h2>Checklist</h2></div>
+            <div class="panel-head"><h2>Opcionais</h2></div>
             <div class="panel-body">
               <ul class="timeline" id="previewChecklist">
                 <li style="color:var(--silver); font-size:12.5px;">Nenhum item.</li>
@@ -381,7 +380,11 @@
     renderChecklist(veiculo.checklist || []);
    } else {
     renderSlots();
-    renderChecklist(['Revisão em dia', 'Laudo aprovado', 'Pneus novos', 'Freios ok', 'IPTV quitado']);
+    renderChecklist([
+      'Ar-condicionado', 'Direção hidráulica', 'Direção elétrica', 
+      'Vidros elétricos', 'Travas elétricas', 'Alarme', 
+      'Freios ABS', 'IPVA quitado'
+    ]);
    }
 
    // O preview lateral depende dos campos acima: so atualiza aqui
@@ -509,8 +512,11 @@
 
   /* ---------- Checklist ---------- */
   const ITENS_PADRAO = [
-    'Revisão em dia', 'Laudo aprovado', 'Pneus novos', 'Freios revisados',
-    'IPTV quitado', 'Manual do proprietário', 'Chave reserva', 'Nota fiscal'
+    'Ar-condicionado', 'Direção elétrica', 'Direção hidráulica',
+    'Vidros elétricos', 'Travas elétricas', 'Alarme',
+    'Freios ABS', 'Airbag duplo', 'Central multimídia',
+    'Câmera de ré', 'Sensor de estacionamento', 'Rodas de liga leve',
+    'IPVA quitado', 'Manual e chave reserva'
   ];
 
   function renderChecklist(itens) {
