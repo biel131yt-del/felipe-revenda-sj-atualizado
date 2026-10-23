@@ -10,6 +10,46 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/admin/assets/admin.css">
+  <style>
+    /* Estilos para os novos botões de Opcionais (Chips) */
+    .opcionais-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .opcional-chip input {
+      display: none;
+    }
+    .opcional-chip span {
+      display: inline-block;
+      padding: 10px 16px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 30px;
+      font-size: 13px;
+      color: var(--silver);
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s ease;
+    }
+    .opcional-chip:hover span {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.2);
+    }
+    .opcional-chip input:checked + span {
+      background: var(--red);
+      border-color: var(--red);
+      color: var(--white);
+      font-weight: 600;
+    }
+    .add-opcional-box {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+  </style>
 </head>
 <body>
 
@@ -226,11 +266,6 @@
                   pequenas ou muito desfocadas — a capa fica boa quando a foto tem
                   pelo menos o tamanho de uma tela de celular.
                 </p>
-                <p style="font-size:12px; color:rgba(168,173,181,0.75); margin-bottom:18px; line-height:1.6;">
-                  <strong style="color:var(--silver);">Foto de iPhone:</strong> abra este
-                  painel pelo Safari. Se a foto nao entrar, salve ela como JPEG na
-                  galeria do celular e mande de novo.
-                </p>
 
                 <div id="slotsFotos" style="display:grid; grid-template-columns:repeat(3,1fr); gap:14px;"></div>
 
@@ -246,19 +281,23 @@
               </div>
             </div>
 
+            <!-- NOVA SEÇÃO DE OPCIONAIS COM BOTÕES CLICÁVEIS -->
             <div class="form-section">
               <div class="form-section-head">
                 <h3>Opcionais e Características</h3>
-                <button type="button" class="btn btn-ghost btn-sm" id="btnAddCheck">
-                  <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                  Adicionar item
-                </button>
+                <span class="sub">Clique para marcar o que o carro possui</span>
               </div>
               <div class="form-section-body">
-                <p style="font-size:12px; color:var(--silver); margin-bottom:14px;">
-                  Marque os itens que o veículo possui ou adicione novos. O que estiver marcado aparece na página do veículo.
-                </p>
-                <div class="checklist-editor" id="checklistEditor"></div>
+                
+                <div class="opcionais-grid" id="opcionaisContainer">
+                  <!-- Os botões (chips) serão carregados aqui pelo Javascript -->
+                </div>
+
+                <div class="add-opcional-box">
+                  <input type="text" id="novoOpcionalInput" placeholder="Outro opcional (ex: Teto Solar, Banco de Couro)..." style="flex:1;">
+                  <button type="button" class="btn btn-secondary" id="btnAdicionarOpcional" style="min-height: 42px;">Adicionar</button>
+                </div>
+
               </div>
             </div>
 
@@ -377,14 +416,10 @@
     $('#descricao').value = veiculo.descricao || '';
 
     renderSlots();
-    renderChecklist(veiculo.checklist || []);
+    renderOpcionais(veiculo.checklist || []);
    } else {
     renderSlots();
-    renderChecklist([
-      'Ar-condicionado', 'Direção hidráulica', 'Direção elétrica', 
-      'Vidros elétricos', 'Travas elétricas', 'Alarme', 
-      'Freios ABS', 'IPVA quitado'
-    ]);
+    renderOpcionais([]);
    }
 
    // O preview lateral depende dos campos acima: so atualiza aqui
@@ -444,17 +479,12 @@
     const aviso = botao ? botao.querySelector('.enviando') : null;
 
     try {
-      // Redimensiona e converte no navegador (resolve HEIC, limite de payload
-      // e otimiza a foto para o site). Padrao: WebP; fallback JPEG.
       const processada = await SV.comprimirImagem(arquivo, {
         maxDimensao: 1600,
         qualidade: 0.85
       });
 
       const ext = processada.webp ? 'webp' : 'jpg';
-      // Nome com versao: cada foto nova tem URL nova. Sem isso, o
-      // navegador (e o CDN) ficavam servindo a foto antiga por 1 ano,
-      // porque /api/foto usa cache longo.
       const nomeFinal = `${idVeiculo}-${slot}-${Date.now().toString(36)}.${ext}`;
 
       const resp = await fetch('/api/upload', {
@@ -463,7 +493,6 @@
         body: JSON.stringify({
           nome: nomeFinal,
           dados: processada.dataUrl,
-          // o servidor apaga a foto anterior depois de gravar a nova
           substituir: fotos[slot]
         })
       });
@@ -472,16 +501,13 @@
 
       if (resp.ok) {
         fotos[slot] = json.caminho;
-        // Se trocou a capa, o preview lateral ja mostra a foto nova
         if (slot === 'frente') atualizarPreview();
         toast('Foto enviada. O site ja mostra ela.');
 
-        // Aviso se a foto original era pequena demais para capa
         if (processada.origem.largura < 900) {
           toast('Essa foto ficou pequena e pode sair pixelada. Se der, mande uma foto maior ou tire mais perto do carro.', true);
         }
       } else {
-        // Mantem a foto anterior: falhar no upload nao pode apagar o que ja estava
         toast(json.error || json.dica || 'Nao foi possivel enviar a foto. A foto anterior foi mantida.', true);
       }
     } catch (err) {
@@ -510,62 +536,64 @@
     renderSlots();
   });
 
-  /* ---------- Checklist ---------- */
-  const ITENS_PADRAO = [
-    'Ar-condicionado', 'Direção elétrica', 'Direção hidráulica',
+  /* ---------- NOVOS OPCIONAIS (Chips) ---------- */
+  const OPCIONAIS_PADRAO = [
+    'Ar-condicionado', 'Direção hidráulica', 'Direção elétrica',
     'Vidros elétricos', 'Travas elétricas', 'Alarme',
     'Freios ABS', 'Airbag duplo', 'Central multimídia',
     'Câmera de ré', 'Sensor de estacionamento', 'Rodas de liga leve',
-    'IPVA quitado', 'Manual e chave reserva'
+    'Bancos de couro', 'Teto solar', 'Manual e chave reserva', 'IPVA quitado'
   ];
 
-  function renderChecklist(itens) {
-    const box = $('#checklistEditor');
-    if (!itens.length) {
-      box.innerHTML = '<p style="grid-column:1/-1; font-size:12.5px; color:var(--silver);">Nenhum item. Use “Adicionar item”.</p>';
-      return;
-    }
-    box.innerHTML = itens.map((it, i) =>
-      '<div class="check-row" data-i="' + i + '">' +
-        '<input type="checkbox" checked>' +
-        '<input type="text" class="check-label" value="' + it.replace(/"/g, '&quot;') + '">' +
-        '<button type="button" class="link-action perigo" data-remover-check="' + i + '">&times;</button>' +
-      '</div>'
-    ).join('');
+  // Limpa palavras sujas vindas da versão antiga
+  const limparItensAntigos = (item) => {
+    if(item.includes('IPTV') || item.includes('Revisão em dia') || item.includes('Laudo aprovado') || item.includes('Pneus novos')) return false;
+    return true;
+  };
+
+  function renderOpcionais(selecionados = []) {
+    const container = document.getElementById('opcionaisContainer');
+    
+    // Filtra itens velhos e errados do veículo antigo
+    const selecionadosLimpos = selecionados.filter(limparItensAntigos);
+
+    // Junta a lista padrão com qualquer item extra que este carro já possua salvo
+    const todosOpcionais = [...new Set([...OPCIONAIS_PADRAO, ...selecionadosLimpos])];
+
+    container.innerHTML = todosOpcionais.map(opcional => {
+      const checked = selecionadosLimpos.includes(opcional) ? 'checked' : '';
+      return `
+        <label class="opcional-chip">
+          <input type="checkbox" value="${SV.escapeHtml(opcional)}" ${checked}>
+          <span>${SV.escapeHtml(opcional)}</span>
+        </label>
+      `;
+    }).join('');
   }
 
-  $('#checklistEditor').addEventListener('input', e => {
-    if (!e.target.classList.contains('check-label')) return;
-    const row = e.target.closest('.check-row');
-    const idx = Number(row.getAttribute('data-i'));
-    const checked = row.querySelector('input[type="checkbox"]').checked;
-    const itens = Array.from(document.querySelectorAll('#checklistEditor .check-row')).map(r => ({
-      texto: r.querySelector('.check-label').value,
-      ok: r.querySelector('input[type="checkbox"]').checked
-    }));
-    // atualiza array em memória
-    checklistAtual = itens;
-    row.querySelector('.check-label').classList.toggle('done', checked);
+  // Atualizar preview ao clicar em um chip
+  document.getElementById('opcionaisContainer').addEventListener('change', atualizarPreview);
+
+  // Adicionar opcional customizado digitando
+  document.getElementById('btnAdicionarOpcional').addEventListener('click', () => {
+    const input = document.getElementById('novoOpcionalInput');
+    const texto = input.value.trim();
+    if (!texto) return;
+
+    const selecionadosAtuais = getOpcionaisSelecionados();
+    if (!selecionadosAtuais.includes(texto)) {
+      selecionadosAtuais.push(texto);
+    }
+    
+    renderOpcionais(selecionadosAtuais);
+    input.value = '';
+    atualizarPreview();
   });
 
-  let checklistAtual = [];
-
-  $('#checklistEditor').addEventListener('click', e => {
-    const btn = e.target.closest('[data-remover-check]');
-    if (!btn) return;
-    const idx = Number(btn.getAttribute('data-remover-check'));
-    const itens = Array.from(document.querySelectorAll('#checklistEditor .check-row'))
-      .filter((r, i) => i !== idx)
-      .map(r => r.querySelector('.check-label').value);
-    renderChecklist(itens);
-  });
-
-  $('#btnAddCheck').addEventListener('click', () => {
-    const itens = Array.from(document.querySelectorAll('#checklistEditor .check-row'))
-      .map(r => r.querySelector('.check-label').value);
-    itens.push('Novo item');
-    renderChecklist(itens);
-  });
+  // Função helper para pegar todos marcados
+  function getOpcionaisSelecionados() {
+    return Array.from(document.querySelectorAll('#opcionaisContainer input:checked')).map(cb => cb.value);
+  }
 
   /* ---------- Preview ao vivo ---------- */
   function atualizarPreview() {
@@ -574,7 +602,6 @@
     const ano = $('#ano').value || '';
     const preco = Number(String($('#preco').value).replace(/\./g, '').replace(',', '.')) || 0;
 
-    // A imagem do preview e a CAPA do veiculo (como o visitante ve no site)
     const imgPreview = document.getElementById('previewImg');
     if (imgPreview) {
       imgPreview.src = imgPath(fotos.frente || '');
@@ -584,9 +611,8 @@
     $('#previewModelo').textContent = modelo + (ano ? ' ' + ano : '');
     $('#previewPreco').textContent = fmtMoeda(preco);
 
-    const marcados = Array.from(document.querySelectorAll('#checklistEditor .check-row'))
-      .filter(r => r.querySelector('input[type="checkbox"]').checked)
-      .map(r => r.querySelector('.check-label').value);
+    // Lê direto dos chips marcados
+    const marcados = getOpcionaisSelecionados();
 
     $('#previewChecklist').innerHTML = marcados.length
       ? marcados.map(t => '<li><span class="tl-dot"></span><div class="tl-body"><strong>' + t + '</strong></div></li>').join('')
@@ -640,9 +666,8 @@
         traseira: fotos.traseira || 'images/placeholder-veiculo.svg',
         extras: (fotos.extras || []).slice()
       },
-      checklist: Array.from(document.querySelectorAll('#checklistEditor .check-row'))
-        .filter(r => r.querySelector('input[type="checkbox"]').checked)
-        .map(r => r.querySelector('.check-label').value),
+      // Salva direto os chips que estão marcados
+      checklist: getOpcionaisSelecionados(),
       atualizado_em: new Date().toISOString()
     };
   }
@@ -665,7 +690,6 @@
       VEICULOS.push(dados);
     }
 
-    // 1) Publica no banco (dispara o deploy automatico)
     let publicado = false;
     try {
       const { ok, json } = await SV_ESTOQUE_ADMIN.salvar(
@@ -674,7 +698,6 @@
       );
       publicado = ok;
       if (publicado) {
-        // Recarrega do banco: o que o painel mostra passa a ser o que esta no ar
         const { veiculos } = await SV_ESTOQUE_ADMIN.carregar();
         if (veiculos && veiculos.length) {
           VEICULOS = veiculos;
@@ -691,11 +714,9 @@
       console.warn('[SV] Falha ao publicar:', err.message);
     }
 
-    // 2) Sem backend: orienta o fluxo manual
     console.log('[SV] Veículo salvo localmente:', dados);
     toast('Salvo so neste navegador. Fale com o responsavel pelo site para publicar.', true);
   });
-
 
   function toast(msg, erro) {
     const t = $('#toast');
